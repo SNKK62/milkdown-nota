@@ -39866,6 +39866,7 @@ const imageComponent = ({
   const [uuid] = atomico.useState(crypto.randomUUID());
   const [focusLinkInput, setFocusLinkInput] = atomico.useState(false);
   const [currentLink, setCurrentLink] = atomico.useState(src);
+  const [shownSrc, setShownSrc] = atomico.useState(src);
   useBlockEffect({
     image,
     resizeHandle,
@@ -39879,7 +39880,7 @@ const imageComponent = ({
   }, [selected]);
   atomico.useEffect(() => {
     config == null ? void 0 : config.getActualSrc(src).then((actualSrc) => {
-      setAttr == null ? void 0 : setAttr("src", actualSrc);
+      setShownSrc(actualSrc);
     });
   }, [src]);
   const onInput = (e) => {
@@ -39987,7 +39988,7 @@ const imageComponent = ({
       <img
         ref=${image}
         data-type=${IMAGE_DATA_TYPE}
-        src=${src}
+        src=${shownSrc}
         alt=${caption}
         ratio=${ratio}
       />

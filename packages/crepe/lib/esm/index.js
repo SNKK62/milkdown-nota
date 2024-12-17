@@ -39864,6 +39864,7 @@ const imageComponent = ({
   const [uuid] = useState(crypto.randomUUID());
   const [focusLinkInput, setFocusLinkInput] = useState(false);
   const [currentLink, setCurrentLink] = useState(src);
+  const [shownSrc, setShownSrc] = useState(src);
   useBlockEffect({
     image,
     resizeHandle,
@@ -39877,7 +39878,7 @@ const imageComponent = ({
   }, [selected]);
   useEffect(() => {
     config == null ? void 0 : config.getActualSrc(src).then((actualSrc) => {
-      setAttr == null ? void 0 : setAttr("src", actualSrc);
+      setShownSrc(actualSrc);
     });
   }, [src]);
   const onInput = (e) => {
@@ -39985,7 +39986,7 @@ const imageComponent = ({
       <img
         ref=${image}
         data-type=${IMAGE_DATA_TYPE}
-        src=${src}
+        src=${shownSrc}
         alt=${caption}
         ratio=${ratio}
       />
