@@ -1,6 +1,5 @@
 import type { InputRule } from '../../inputrules'
 import type { EditorState, TextSelection, Transaction } from '../../state'
-// import type { TextSelection } from '../../state'
 import { Plugin, PluginKey } from '../../state'
 import type { EditorView } from '../../view'
 
