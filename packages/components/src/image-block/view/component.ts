@@ -37,6 +37,7 @@ export const imageComponent: Component<ImageComponentProps> = ({
   const [uuid] = useState(crypto.randomUUID())
   const [focusLinkInput, setFocusLinkInput] = useState(false)
   const [currentLink, setCurrentLink] = useState(src)
+  const [shownSrc, setShownSrc] = useState(src)
 
   useBlockEffect({
     image,
@@ -54,7 +55,8 @@ export const imageComponent: Component<ImageComponentProps> = ({
 
   useEffect(() => {
     config?.getActualSrc(src).then((actualSrc) => {
-      setAttr?.('src', actualSrc)
+      // setAttr?.('src', actualSrc)
+      setShownSrc(actualSrc)
     })
   }, [src])
 
@@ -171,7 +173,7 @@ export const imageComponent: Component<ImageComponentProps> = ({
       <img
         ref=${image}
         data-type=${IMAGE_DATA_TYPE}
-        src=${src}
+        src=${shownSrc}
         alt=${caption}
         ratio=${ratio}
       />
