@@ -5,6 +5,7 @@ export interface InlineImageConfig {
     confirmButton: () => ReturnType<typeof html>;
     uploadPlaceholderText: string;
     onUpload: (file: File) => Promise<string>;
+    proxyDomURL?: (url: string) => Promise<string> | string;
 }
 export declare const defaultInlineImageConfig: InlineImageConfig;
 export declare const inlineImageConfig: import("@milkdown/utils").$Ctx<InlineImageConfig, "inlineImageConfigCtx">;

@@ -1,6 +1,7 @@
 import type { DefineFeature, Icon } from '../shared';
 interface ImageBlockConfig {
     onUpload: (file: File) => Promise<string>;
+    proxyDomURL: (url: string) => Promise<string> | string;
     inlineImageIcon: Icon;
     inlineConfirmButton: Icon;
     inlineUploadButton: Icon;

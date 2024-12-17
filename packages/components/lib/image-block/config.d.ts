@@ -8,6 +8,7 @@ export interface ImageBlockConfig {
     captionPlaceholderText: string;
     onUpload: (file: File) => Promise<string>;
     getActualSrc: (src: string) => Promise<string>;
+    proxyDomURL?: (url: string) => Promise<string> | string;
 }
 export declare const defaultImageBlockConfig: ImageBlockConfig;
 export declare const imageBlockConfig: import("@milkdown/utils").$Ctx<ImageBlockConfig, "imageBlockConfigCtx">;

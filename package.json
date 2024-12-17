@@ -67,7 +67,7 @@
     "postcss": "^8.4.38",
     "postcss-cli": "^11.0.0",
     "postcss-nested": "^7.0.0",
-    "prosemirror-view": "1.36.0",
+    "prosemirror-view": "1.37.1",
     "prettier": "^3.4.2",
     "rimraf": "^6.0.0",
     "rollup": "^4.22.4",

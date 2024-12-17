@@ -25015,11 +25015,12 @@ function posFromCaret(view, node, offset, coords) {
     for (let cur = node, sawBlock = false;;) {
         if (cur == view.dom)
             break;
-        let desc = view.docView.nearestDesc(cur, true);
+        let desc = view.docView.nearestDesc(cur, true), rect;
         if (!desc)
             return null;
-        if (desc.dom.nodeType == 1 && (desc.node.isBlock && desc.parent || !desc.contentDOM)) {
-            let rect = desc.dom.getBoundingClientRect();
+        if (desc.dom.nodeType == 1 && (desc.node.isBlock && desc.parent || !desc.contentDOM) &&
+            // Ignore elements with zero-size bounding rectangles
+            ((rect = desc.dom.getBoundingClientRect()).width || rect.height)) {
             if (desc.node.isBlock && desc.parent) {
                 // Only apply the horizontal test to the innermost block. Vertical for any parent.
                 if (!sawBlock && rect.left > coords.left || rect.top > coords.top)
@@ -25615,18 +25616,19 @@ class ViewDesc {
     // custom things with the selection. Note that this falls apart when
     // a selection starts in such a node and ends in another, in which
     // case we just use whatever domFromPos produces as a best effort.
-    setSelection(anchor, head, root, force = false) {
+    setSelection(anchor, head, view, force = false) {
         // If the selection falls entirely in a child, give it to that child
         let from = Math.min(anchor, head), to = Math.max(anchor, head);
         for (let i = 0, offset = 0; i < this.children.length; i++) {
             let child = this.children[i], end = offset + child.size;
             if (from > offset && to < end)
-                return child.setSelection(anchor - offset - child.border, head - offset - child.border, root, force);
+                return child.setSelection(anchor - offset - child.border, head - offset - child.border, view, force);
             offset = end;
         }
         let anchorDOM = this.domFromPos(anchor, anchor ? -1 : 1);
         let headDOM = head == anchor ? anchorDOM : this.domFromPos(head, head ? -1 : 1);
-        let domSel = root.getSelection();
+        let domSel = view.root.getSelection();
+        let selRange = view.domSelectionRange();
         let brKludge = false;
         // On Firefox, using Selection.collapse to put the cursor after a
         // BR node for some reason doesn't always work (#1073). On Safari,
@@ -25657,14 +25659,14 @@ class ViewDesc {
         }
         // Firefox can act strangely when the selection is in front of an
         // uneditable node. See #1163 and https://bugzilla.mozilla.org/show_bug.cgi?id=1709536
-        if (gecko && domSel.focusNode && domSel.focusNode != headDOM.node && domSel.focusNode.nodeType == 1) {
-            let after = domSel.focusNode.childNodes[domSel.focusOffset];
+        if (gecko && selRange.focusNode && selRange.focusNode != headDOM.node && selRange.focusNode.nodeType == 1) {
+            let after = selRange.focusNode.childNodes[selRange.focusOffset];
             if (after && after.contentEditable == "false")
                 force = true;
         }
         if (!(force || brKludge && safari$1) &&
-            isEquivalentPosition(anchorDOM.node, anchorDOM.offset, domSel.anchorNode, domSel.anchorOffset) &&
-            isEquivalentPosition(headDOM.node, headDOM.offset, domSel.focusNode, domSel.focusOffset))
+            isEquivalentPosition(anchorDOM.node, anchorDOM.offset, selRange.anchorNode, selRange.anchorOffset) &&
+            isEquivalentPosition(headDOM.node, headDOM.offset, selRange.focusNode, selRange.focusOffset))
             return;
         // Selection.extend can be used to create an 'inverted' selection
         // (one where the focus is before the anchor), but not all
@@ -25852,6 +25854,9 @@ class MarkViewDesc extends ViewDesc {
             nodes[i].parent = copy;
         copy.children = nodes;
         return copy;
+    }
+    ignoreMutation(mutation) {
+        return this.spec.ignoreMutation ? this.spec.ignoreMutation(mutation) : super.ignoreMutation(mutation);
     }
     destroy() {
         if (this.spec.destroy)
@@ -26196,9 +26201,9 @@ class CustomNodeViewDesc extends NodeViewDesc {
     deselectNode() {
         this.spec.deselectNode ? this.spec.deselectNode() : super.deselectNode();
     }
-    setSelection(anchor, head, root, force) {
-        this.spec.setSelection ? this.spec.setSelection(anchor, head, root)
-            : super.setSelection(anchor, head, root, force);
+    setSelection(anchor, head, view, force) {
+        this.spec.setSelection ? this.spec.setSelection(anchor, head, view.root)
+            : super.setSelection(anchor, head, view, force);
     }
     destroy() {
         if (this.spec.destroy)
@@ -26858,7 +26863,7 @@ function selectionToDOM(view, force = false) {
             if (!sel.empty && !sel.$from.parent.inlineContent)
                 resetEditableTo = temporarilyEditableNear(view, sel.to);
         }
-        view.docView.setSelection(anchor, head, view.root, force);
+        view.docView.setSelection(anchor, head, view, force);
         if (brokenSelectBetweenUneditable) {
             if (resetEditableFrom)
                 resetEditable(resetEditableFrom);
@@ -27657,7 +27662,7 @@ class InputState {
         this.lastIOSEnterFallbackTimeout = -1;
         this.lastFocus = 0;
         this.lastTouch = 0;
-        this.lastAndroidDelete = 0;
+        this.lastChromeDelete = 0;
         this.composing = false;
         this.compositionNode = null;
         this.composingTimeout = -1;
@@ -29634,11 +29639,11 @@ function readDOMChange(view, from, to, typeOver, addedNodes) {
             view.domObserver.suppressSelectionUpdates(); // #820
         return;
     }
-    // Chrome Android will occasionally, during composition, delete the
+    // Chrome will occasionally, during composition, delete the
     // entire composition and then immediately insert it again. This is
     // used to detect that situation.
-    if (chrome && android && change.endB == change.start)
-        view.input.lastAndroidDelete = Date.now();
+    if (chrome && change.endB == change.start)
+        view.input.lastChromeDelete = Date.now();
     // This tries to detect Android virtual keyboard
     // enter-and-pick-suggestion action. That sometimes (see issue
     // #1059) first fires a DOM mutation, before moving the selection to
@@ -29689,13 +29694,13 @@ function readDOMChange(view, from, to, typeOver, addedNodes) {
         tr = view.state.tr.replace(chFrom, chTo, parse.doc.slice(change.start - parse.from, change.endB - parse.from));
     if (parse.sel) {
         let sel = resolveSelection(view, tr.doc, parse.sel);
-        // Chrome Android will sometimes, during composition, report the
+        // Chrome will sometimes, during composition, report the
         // selection in the wrong place. If it looks like that is
         // happening, don't update the selection.
         // Edge just doesn't move the cursor forward when you start typing
         // in an empty block or between br nodes.
-        if (sel && !(chrome && android && view.composing && sel.empty &&
-            (change.start != change.endB || view.input.lastAndroidDelete < Date.now() - 100) &&
+        if (sel && !(chrome && view.composing && sel.empty &&
+            (change.start != change.endB || view.input.lastChromeDelete < Date.now() - 100) &&
             (sel.head == chFrom || sel.head == tr.mapping.map(chTo) - 1) ||
             ie$4 && sel.empty && sel.head == chFrom))
             tr.setSelection(sel);
@@ -40305,7 +40310,8 @@ const defineFeature$5 = (editor, config) => {
         imageIcon: (_b = config == null ? void 0 : config.inlineImageIcon) != null ? _b : () => imageIcon,
         confirmButton: (_c = config == null ? void 0 : config.inlineConfirmButton) != null ? _c : () => confirmIcon,
         uploadPlaceholderText: (_d = config == null ? void 0 : config.inlineUploadPlaceholderText) != null ? _d : "or paste link",
-        onUpload: (_f = (_e = config == null ? void 0 : config.inlineOnUpload) != null ? _e : config == null ? void 0 : config.onUpload) != null ? _f : value.onUpload
+        onUpload: (_f = (_e = config == null ? void 0 : config.inlineOnUpload) != null ? _e : config == null ? void 0 : config.onUpload) != null ? _f : value.onUpload,
+        proxyDomURL: config == null ? void 0 : config.proxyDomURL
       };
     });
     ctx.update(imageBlockConfig.key, (value) => {
@@ -40323,7 +40329,8 @@ const defineFeature$5 = (editor, config) => {
             return config.getActualSrc(src);
           }
           return value.getActualSrc(src);
-        }
+        },
+        proxyDomURL: config == null ? void 0 : config.proxyDomURL
       };
     });
   }).use(imageBlockComponent).use(imageInlineComponent);

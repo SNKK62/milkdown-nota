@@ -329,7 +329,7 @@
     "@milkdown/plugin-upload": "^7.5.0",
     "@milkdown/preset-commonmark": "^7.5.0",
     "@milkdown/preset-gfm": "^7.5.0",
-    "@milkdown/prose": "^7.5.0",
+    "@milkdown/prose": "^7.5.9",
     "@milkdown/transformer": "^7.5.0",
     "@milkdown/utils": "^7.5.0",
     "tslib": "^2.5.0"

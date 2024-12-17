@@ -454,8 +454,20 @@ const imageBlockView = $view(
         "milkdown-image-block"
       );
       const config = ctx.get(imageBlockConfig.key);
+      const proxyDomURL = config.proxyDomURL;
       const bindAttrs = (node) => {
-        dom.src = node.attrs.src;
+        if (!proxyDomURL) {
+          dom.src = node.attrs.src;
+        } else {
+          const proxiedURL = proxyDomURL(node.attrs.src);
+          if (typeof proxiedURL === "string") {
+            dom.src = proxiedURL;
+          } else {
+            proxiedURL.then((url) => {
+              dom.src = url;
+            });
+          }
+        }
         dom.ratio = node.attrs.ratio;
         dom.caption = node.attrs.caption;
         dom.readonly = !view.editable;

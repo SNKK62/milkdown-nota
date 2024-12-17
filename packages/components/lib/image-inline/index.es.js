@@ -183,8 +183,20 @@ const inlineImageView = $view(
         "milkdown-image-inline"
       );
       const config = ctx.get(inlineImageConfig.key);
+      const proxyDomURL = config.proxyDomURL;
       const bindAttrs = (node) => {
-        dom.src = node.attrs.src;
+        if (!proxyDomURL) {
+          dom.src = node.attrs.src;
+        } else {
+          const proxiedURL = proxyDomURL(node.attrs.src);
+          if (typeof proxiedURL === "string") {
+            dom.src = proxiedURL;
+          } else {
+            proxiedURL.then((url) => {
+              dom.src = url;
+            });
+          }
+        }
         dom.alt = node.attrs.alt;
         dom.title = node.attrs.title;
       };
